@@ -41,26 +41,8 @@ import os
 import sys
 
 import requests 
-#from slackclient import SlackCient
+
 def sendMessageInSlack():
-    #token = "xoxp-213499110228-213573072933-214545441239-381a91abca4272511911b446e2f21d74"
-    #connection = http.client.HTTPSConnection("slack.com", timeout=2)
-		 ##/api/chat.postMessage?token=XXX&channel=XXX&text=XXX", timeout=2)
-    
-   
-    #headerRequest = {"User-Agent":"IntegrationProject"}
-    
-    ##params = {"token":token,"channel":"C69CZSV26","text":"Hello"}
-    #params = "token=" + token + "&channel=" + "%40anna" + "&text=" + "Hello"
-    ##print(params)
-    #params={}
-    #connection.request('POST','https://slack.com/api/chat.postMessage?token=xoxp-213499110228-213573072933-214545441239-381a91abca4272511911b446e2f21d74&channel=%40anna&text=test%20message%20chat%20post&pretty=1', params)
-    
-    ##response = connection.getresponse()
-    
-    ##membersInfo = json.loads(response.read().decode('utf-8'))
-    ##print(response.getheader())
-    
     parser = argparse.ArgumentParser()
     parser.add_argument('text', nargs='?', help='message you want to get delivered. wrap in quotes if it contains spaces. Use "-" to read from stdin.')
     parser.add_argument('-w', '--webhook-url', help='webhook URL to use. if not given, the SLACK_WEBHOOK_URL environment variable needs to be set.', default=os.getenv('SLACK_WEBHOOK_URL'))
@@ -136,10 +118,6 @@ def sendMessageInSlack():
 sendMessageInSlack()
 
 
-#user1 = {'Name': 'Barry, 'Route': 'Belgrave'', 'route_id': 'Belgrave'}
-#user2 = {'Name': 'Harry', 'Route': ' Hurstbridge'}
-#user3 = {'Name': 'Wally', 'Route': 'Werribee'}
-#user4 = {'Name': 'Freddy', 'Route': ' Frankston'}
 
 
 
