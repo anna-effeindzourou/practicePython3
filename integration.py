@@ -4,36 +4,83 @@ import socket
 import ssl
 from datetime import datetime
 from base64 import b64encode
- 
-def get_disruptions(route_id):
-    """
-    Create some code to extract information about route disruptions from the Public Transport 
-    Victoria API. 
+from hashlib import sha1
+import hmac
+import binascii
 
-    """
-    #connection to PTV API
-    connection = http.client.HTTPSConnection("https://www.ptv.vic.gov.au/about-ptv/ptv-data-and-reports/digital-products/ptv-timetable-api/", timeout=2)
+
+
+def getRouteId(routeName):
+    request ='/v3/routes?route_name='+routeName
+    request = request + ('&' if ('?' in request) else '?')
+    raw = request+'devid={0}'.format(devId)
+    key_bytes= bytes(key , 'latin-1')
+    raw_bytes = bytes(raw, 'latin-1')
+    hashed = hmac.new(key_bytes, raw_bytes, sha1)
     
+    signature = hashed.hexdigest()
+    connection.request('GET',raw+'&signature={1}'.format(devId, signature))
+    response = connection.getresponse()
+    routeInfo = json.loads(response.read().decode('utf-8'))
+    routeId = routeInfo['routes'][0]['route_id']
+    return routeId
+
+
+def get_disruptions(route_id):
+    #"""
+    #Create some code to extract information about route disruptions from the Public Transport 
+    #Victoria API. 
+
+    #"""
+    ##connection to PTV API
+    #connection = http.client.HTTPConnection("timetableapi.ptv.vic.gov.au", timeout=2)
+    ##http://timetableapi.ptv.vic.gov.au/v3/disruptions/route/0?devid=3000325&signature
+    #devId = 3000325
+    #key = 'afbed855-d243-43a1-a55a-de4631d52f38'
    
-    headerRequest = {"User-Agent":"CommonCodeApp"}
+
+    request ='/v3/disruptions/route/'+str(route_id)
+    request = request + ('&' if ('?' in request) else '?')
+    raw = request+'devid={0}'.format(devId)
+    key_bytes= bytes(key , 'latin-1')
+    raw_bytes = bytes(raw, 'latin-1')
+    hashed = hmac.new(key_bytes, raw_bytes, sha1)
     
-    params = {}
-    connection.request('GET','/v3/disruptions/route/{route_id}', params, headerRequest)
+    signature = hashed.hexdigest()
+    #print('pre: ',raw+'&signature={1}'.format(devId, signature))
+    connection.request('GET',raw+'&signature={1}'.format(devId, signature))
     
     #calculate the number of members returned by the first request
     response = connection.getresponse()
     membersInfo = json.loads(response.read().decode('utf-8'))
-    nbOfMembers = len(membersInfo)
-   
-    
-    connection.close()
-    
-    
-    
-    
-    
-    return nbOfMembers
-#!/usr/bin/env python
+    #print('result = ',membersInfo)
+    res1 = membersInfo['disruptions']['metro_train'][0]['disruption_status']
+    #print(membersInfo['disruptions']['metro_train'][0]['disruption_type'])
+    #print(membersInfo['disruptions']['metro_train'][0]['disruption_status'])
+    res2=membersInfo['disruptions']['metro_train'][0]['title']
+    return [res1,res2]
+
+ 
+
+
+
+
+
+##!/usr/bin/env python
+#get_disruptions(2)
+
+    #"metro_tram": [],
+    #"metro_bus": [],
+    #"regional_train": [],
+    #"regional_coach": [],
+    #"regional_bus": []
+
+   #raw = '/v2/healthcheck'+'devid={0}'.format(devId)
+   #hashed = hmac.new(key, raw, sha1)
+   #signature = hashed.hexdigest()
+   #return 'http://tst.timetableapi.ptv.vic.gov.au'+raw+'&signature={1}'.format(devId, signature)
+
+
 
 import argparse
 import json
@@ -42,82 +89,45 @@ import sys
 
 import requests 
 
-def sendMessageInSlack():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('text', nargs='?', help='message you want to get delivered. wrap in quotes if it contains spaces. Use "-" to read from stdin.')
-    parser.add_argument('-w', '--webhook-url', help='webhook URL to use. if not given, the SLACK_WEBHOOK_URL environment variable needs to be set.', default=os.getenv('SLACK_WEBHOOK_URL'))
-    parser.add_argument('-c', '--channel', help='channel the message should be sent to. can also be set using the SLACK_CHANNEL environment variable. if not given, the channel configured for this webhook URL will be used.', default=os.getenv('SLACK_CHANNEL'))
-    parser.add_argument('-u', '--username', help='username that should be used as the sender. can also be set using the SLACK_USERNAME environment variable. if not given, the username configured for this webhook URL will be used.', default=os.getenv('SLACK_USERNAME'))
-    parser.add_argument('-i', '--icon-url', help='URL of an icon image to use. can also be set using the SLACK_ICON_URL environment variable.', default=os.getenv('SLACK_ICON_URL'))
-    parser.add_argument('-e', '--icon-emoji', help='Slack emoji to use as the icon, e.g. `:ghost:`. can also be set using the SLACK_ICON_EMOJI environment variable.', default=os.getenv('SLACK_ICON_EMOJI'))
-    parser.add_argument('-a', '--attachment', help='send message as a rich attachment', action='store_true', default=False)
-    parser.add_argument('-C', '--color', help='set the attachment color')
-    parser.add_argument('-t', '--title', help='set the attachment title')
+def sendMessageInSlack(text,channel):
+	payload={'username': 'disruption', 'text':text, 'channel': '@'+channel}
 
+	try:
+		res = requests.post('https://hooks.slack.com/services/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', data=json.dumps(payload))
+	except Exception as e:
+		sys.stderr.write('An error occurred when trying to deliver the message:\n  {0}'.format(e.message))
+		return 2
 
-
-    args = parser.parse_args()
-
-    if args.webhook_url is None:
-        sys.stderr.write('No webhook URL given.\nEither use the -w/--webhook-url argument or the SLACK_WEBHOOK_URL environment variable.\n')
-        return 1
-
-    if args.text == '-' and not sys.stdin.isatty():
-        args.text = sys.stdin.read()
-
-    if args.text is None:
-        parser.print_help()
-        return 0
-
-    if args.attachment is not True:
-        payload = {
-            'text': args.text
-        }
-    else:
-        payload = {
-            'attachments': [
-                {
-                    'fallback': args.text,
-                    'color': args.color,
-                    'fields': [
-                        {
-                            'title': args.title,
-                            'value': args.text,
-                            'short': False
-                        }
-                    ]
-                }
-            ]
-        }
-
-    if args.channel is not None:
-        if args.channel[0] not in ['#', '@']:
-            args.channel = '#' + args.channel
-        payload['channel'] = args.channel
-
-    if args.username is not None:
-        payload['username'] = args.username
-
-    if args.icon_url is not None:
-        payload['icon_url'] = args.icon_url
-    elif args.icon_emoji is not None:
-        payload['icon_emoji'] = args.icon_emoji
-
-
-    try:
-        res = requests.post(args.webhook_url, data=json.dumps(payload))
-    except Exception as e:
-        sys.stderr.write('An error occurred when trying to deliver the message:\n  {0}'.format(e.message))
-        return 2
-
-    if not res.ok:
-        sys.stderr.write('Could not deliver the message. Slack says:\n  {0}'.format(res.text))
-    #connection.close()
-    return 0
-
-sendMessageInSlack()
+	if not res.ok:
+		sys.stderr.write('Could not deliver the message. Slack says:\n  {0}'.format(res.text))
+	return 0
 
 
 
 
 
+
+connection = http.client.HTTPConnection("timetableapi.ptv.vic.gov.au", timeout=2)
+devId = XXXXX
+key = 'XXXXX' 
+
+customerRoute=[('Barry','Belgrave'),('Harry','Hurstbridge'),('Wally','Werribee'),('Freddy','Frankston')]
+customerRoute=[('jules','Belgrave'),('anna','Werribee')]
+
+
+def main():
+    route = []
+    for i in range(0,len(customerRoute)):
+        if customerRoute[i][1] not in route:
+           route.append(customerRoute[i][1])
+
+    for i in route:
+        routeId=getRouteId(i)
+        res=get_disruptions(routeId)
+        for j in range(0,len(customerRoute)):
+             if(res[0]=='Current')and(customerRoute[j][1]==i): sendMessageInSlack(res[1],customerRoute[j][0])
+    
+    return res
+
+main()
+connection.close()
